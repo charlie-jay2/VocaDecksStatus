@@ -5,7 +5,7 @@ const statusSchema = new mongoose.Schema({
     service: String,
     status: {
         type: String,
-        enum: ["operational", "down", "maintenance", "minor", "major", "offline"],
+        enum: ["operational", "down", "maintenance", "minor", "major", "offline", "unreleased"],
         default: "operational",
     },
     title: String,

@@ -141,6 +141,7 @@
           <option value="major">Major Outage (Red)</option>
           <option value="maintenance">Maintenance (Blue)</option>
           <option value="offline">Offline/Down (Black)</option>
+          <option value="unreleased">Unreleased (Purple)</option>
         </select>
         <!-- Incident fields wrapper; hidden by default when adding a new service -->
         <div id="incidentFields" style="display: none">
@@ -254,6 +255,8 @@
             return "blue";
           case "offline":
             return "black";
+          case "unreleased":
+            return "purple";
           default:
             return "black";
         }
