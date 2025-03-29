@@ -106,7 +106,9 @@
     <div class="container">
       <h1>Admin - VocaDecks Status</h1>
       <button class="btn btn-add" onclick="openAddModal()">Add Service</button>
-      <button class="btn btn-add" onclick="openEmailModal()">Email All</button>
+      <button class="btn btn-add" onclick="openEmailModal()">
+        Email all Subscribers
+      </button>
       <table>
         <thead>
           <tr>
@@ -140,6 +142,7 @@
           <option value="maintenance">Maintenance (Blue)</option>
           <option value="offline">Offline/Down (Black)</option>
         </select>
+        <!-- Incident fields wrapper; hidden by default when adding a new service -->
         <div id="incidentFields" style="display: none">
           <input
             type="text"
@@ -153,16 +156,20 @@
       </div>
     </div>
 
-    <!-- Modal for Sending Email to All -->
+    <!-- Modal for sending email to all subscribers -->
     <div id="emailModal" class="modal">
       <div class="modal-content">
         <span class="close" onclick="closeEmailModal()">&times;</span>
-        <h2>Email All Subscribers</h2>
+        <h2>Email all Subscribers</h2>
         <input type="text" id="emailSubject" placeholder="Subject" required />
-        <textarea id="emailBody" placeholder="Email Body" required></textarea>
-        <button class="btn btn-add" onclick="sendEmail()">Send Email</button>
+        <textarea
+          id="emailContent"
+          placeholder="Content"
+          rows="5"
+          required></textarea>
+        <button class="btn btn-add" onclick="sendEmailToAll()">Send</button>
         <button class="btn btn-remove" onclick="closeEmailModal()">
-          Cancel
+          Close
         </button>
       </div>
     </div>
@@ -170,27 +177,31 @@
     <script>
       let allowedIPs = ["86.14.107.152"]; // Hardcoded array of allowed IPs
 
+      // Function to get the user's IP address and check if it matches the allowed IPs
       async function checkUserIP() {
         try {
           const res = await fetch("https://api.ipify.org?format=json");
           const data = await res.json();
           const userIP = data.ip;
+
           if (!allowedIPs.includes(userIP)) {
-            window.location.href = "./ip.html";
+            window.location.href = "./ip.html"; // Redirect to ip.html if not allowed
           }
         } catch (error) {
           console.error("Error fetching user IP:", error);
-          window.location.href = "./ip.html";
+          window.location.href = "./ip.html"; // Redirect if there is an error fetching IP
         }
       }
 
+      // Check user IP when the page loads
       checkUserIP();
     </script>
 
     <script>
       let services = []; // Global array to store services
-      let editingService = null;
+      let editingService = null; // Track which service is being edited
 
+      // Fetch services from the database via the Netlify function
       async function fetchServices() {
         try {
           const res = await fetch("/.netlify/functions/getstatus");
@@ -202,6 +213,7 @@
         }
       }
 
+      // Render the services table in the admin page
       function renderTable() {
         const tableBody = document.getElementById("serviceTable");
         tableBody.innerHTML = "";
@@ -229,6 +241,7 @@
         });
       }
 
+      // Map service status to a color
       function getColor(status) {
         switch (status) {
           case "operational":
@@ -246,41 +259,66 @@
         }
       }
 
+      // Open modal for adding a new service (incident fields hidden)
       function openAddModal() {
         editingService = null;
         document.getElementById("modalTitle").textContent = "Add Service";
         document.getElementById("modalService").value = "";
         document.getElementById("modalStatus").value = "operational";
+        // Hide incident fields when adding a new service
         document.getElementById("incidentFields").style.display = "none";
         document.getElementById("modalIncidentTitle").value = "";
         document.getElementById("modalIncidentDescription").value = "";
         document.getElementById("serviceModal").style.display = "block";
       }
 
-      function openEmailModal() {
-        document.getElementById("emailModal").style.display = "block";
+      // Open modal for editing an existing service (incident fields shown)
+      function openEditModal(serviceName) {
+        editingService = serviceName;
+        const service = services.find((s) => s.service === serviceName);
+        if (!service) return;
+        document.getElementById("modalTitle").textContent = "Edit Service";
+        document.getElementById("modalService").value = service.service;
+        document.getElementById("modalStatus").value = service.status;
+        // Show incident fields when editing an existing service
+        document.getElementById("incidentFields").style.display = "block";
+        document.getElementById("modalIncidentTitle").value =
+          service.title || "";
+        document.getElementById("modalIncidentDescription").value =
+          service.description || "";
+        document.getElementById("serviceModal").style.display = "block";
       }
 
+      // Close the modal
       function closeModal() {
         document.getElementById("serviceModal").style.display = "none";
       }
 
+      // Open the email modal
+      function openEmailModal() {
+        document.getElementById("emailModal").style.display = "block";
+      }
+
+      // Close the email modal
       function closeEmailModal() {
         document.getElementById("emailModal").style.display = "none";
       }
 
-      async function sendEmail() {
+      // Send email to all subscribers
+      async function sendEmailToAll() {
         const subject = document.getElementById("emailSubject").value.trim();
-        const body = document.getElementById("emailBody").value.trim();
-        if (!subject || !body) {
-          alert("Please provide both a subject and body for the email.");
+        const content = document.getElementById("emailContent").value.trim();
+
+        if (!subject || !content) {
+          alert("Subject and Content are required.");
           return;
         }
+
         try {
           const res = await fetch("/.netlify/functions/sendEmailAll", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ subject, body }),
+            body: JSON.stringify({ subject, body: content }),
           });
           const result = await res.json();
           if (res.status === 200) {
@@ -291,10 +329,33 @@
           }
         } catch (error) {
           console.error("Error sending email:", error);
-          alert("There was an error sending the email.");
+          alert("Error sending email.");
         }
       }
 
+      // Remove a service
+      async function removeService(serviceName) {
+        if (confirm(`Are you sure you want to remove ${serviceName}?`)) {
+          try {
+            const res = await fetch(`/.netlify/functions/removestatus`, {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ service: serviceName }),
+            });
+            const data = await res.json();
+            if (res.status === 200) {
+              alert(data.message);
+              fetchServices(); // Refresh the service list
+            } else {
+              alert("Error: " + data.message);
+            }
+          } catch (error) {
+            console.error("Error removing service:", error);
+          }
+        }
+      }
+
+      // Save the service (add or edit)
       async function saveService() {
         const service = document.getElementById("modalService").value.trim();
         const status = document.getElementById("modalStatus").value;
@@ -305,73 +366,50 @@
           .getElementById("modalIncidentDescription")
           .value.trim();
 
-        if (!service || !status) {
-          alert("Please provide both service name and status.");
+        if (!service) {
+          alert("Service Name is required.");
           return;
         }
 
-        let newService = {
-          service,
-          status,
-          title: incidentTitle,
-          description: incidentDescription,
-        };
-
         try {
-          const res = await fetch("/.netlify/functions/savestatus", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(newService),
-          });
-          const result = await res.json();
+          let res;
+          if (editingService) {
+            res = await fetch("/.netlify/functions/updatestatus", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                service,
+                status,
+                title: incidentTitle,
+                description: incidentDescription,
+              }),
+            });
+          } else {
+            res = await fetch("/.netlify/functions/addstatus", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                service,
+                status,
+                title: incidentTitle,
+                description: incidentDescription,
+              }),
+            });
+          }
+          const data = await res.json();
           if (res.status === 200) {
-            services.push(newService);
-            renderTable();
+            alert(data.message);
+            fetchServices(); // Refresh the service list
             closeModal();
           } else {
-            alert("Error saving service: " + result.message);
+            alert("Error: " + data.message);
           }
         } catch (error) {
           console.error("Error saving service:", error);
         }
       }
 
-      async function openEditModal(serviceName) {
-        const service = services.find((s) => s.service === serviceName);
-        if (service) {
-          editingService = serviceName;
-          document.getElementById("modalTitle").textContent = "Edit Service";
-          document.getElementById("modalService").value = service.service;
-          document.getElementById("modalStatus").value = service.status;
-          document.getElementById("modalIncidentTitle").value =
-            service.title || "";
-          document.getElementById("modalIncidentDescription").value =
-            service.description || "";
-          document.getElementById("incidentFields").style.display =
-            service.status !== "operational" ? "block" : "none";
-          document.getElementById("serviceModal").style.display = "block";
-        }
-      }
-
-      async function removeService(serviceName) {
-        try {
-          const res = await fetch("/.netlify/functions/removestatus", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ service: serviceName }),
-          });
-          const result = await res.json();
-          if (res.status === 200) {
-            services = services.filter((s) => s.service !== serviceName);
-            renderTable();
-          } else {
-            alert("Error removing service: " + result.message);
-          }
-        } catch (error) {
-          console.error("Error removing service:", error);
-        }
-      }
-
+      // Initial fetch of services
       fetchServices();
     </script>
   </body>
