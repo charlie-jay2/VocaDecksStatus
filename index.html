@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VocaDecks Status</title>
+    <style>
+      body {
+        font-family: "Quicksand", sans-serif;
+        background: linear-gradient(to bottom, black 0%, #214844 100%);
+        background-size: 100% 100%;
+        background-attachment: fixed; /* Optional: Keeps the gradient fixed when scrolling */
+        margin: 0;
+        padding: 0;
+        height: 100vh; /* Ensure full viewport height */
+        overflow-y: hidden;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 20px auto;
+        padding: 20px;
+        color: white;
+      }
+      /* Title styling */
+      h1.page-title {
+        text-align: center;
+        color: #333;
+        margin-bottom: 20px;
+      }
+      /* Incident banner styling */
+      .incident-banner {
+        padding: 20px;
+        margin-bottom: 20px;
+        border-radius: 5px;
+        background-color: #f8d7da; /* light red background */
+        color: #721c24; /* dark red text */
+      }
+      .incident {
+        margin-bottom: 15px;
+        border-bottom: 1px solid #f5c6cb;
+        padding-bottom: 10px;
+      }
+      .incident:last-child {
+        border-bottom: none;
+      }
+      .incident h3 {
+        margin: 0 0 5px;
+        font-size: 20px;
+      }
+      .incident p {
+        margin: 0;
+        font-size: 16px;
+      }
+      /* Table styling */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        padding: 15px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+      }
+      th {
+        background-color: #007bff;
+        color: #fff;
+      }
+      tr:hover {
+        background-color: #3f3f3f;
+      }
+      /* Status text colors */
+      .operational {
+        color: rgb(0, 255, 0);
+        font-weight: bold;
+      }
+      .minor {
+        color: yellow;
+        font-weight: bold;
+      }
+      .major {
+        color: red;
+        font-weight: bold;
+      }
+      .maintenance {
+        color: blue;
+        font-weight: bold;
+      }
+      .offline {
+        color: black;
+        font-weight: bold;
+      }
+
+      /* Modal Styling */
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgb(0, 0, 0);
+        background-color: rgba(0, 0, 0, 0.4);
+      }
+      .modal-content {
+        background-color: #fefefe;
+        margin: 10% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%;
+        max-width: 500px;
+      }
+      .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+      }
+      .close:hover,
+      .close:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      input[type="email"] {
+        width: 80%;
+        padding: 10px;
+        margin: 10px 0;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      button {
+        padding: 10px 20px;
+        border: none;
+        background-color: #007bff;
+        color: white;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Title Section with Image -->
+      <div style="text-align: center">
+        <img
+          src="https://iili.io/3ACiacv.png"
+          alt="VocaDecks Status"
+          style="max-width: 50%; height: auto" />
+      </div>
+
+      <!-- Subscribe Button -->
+      <div style="text-align: center; margin-bottom: 20px">
+        <button id="subscribeBtn">Subscribe to our Email List</button>
+      </div>
+
+      <!-- Incident banner (hidden if no incidents) -->
+      <div
+        id="incidentBanner"
+        class="incident-banner"
+        style="display: none"></div>
+
+      <!-- Services table -->
+      <table>
+        <thead>
+          <tr>
+            <th>SERVICE NAME</th>
+            <th>STATUS</th>
+          </tr>
+        </thead>
+        <tbody id="statusTable"></tbody>
+      </table>
+    </div>
+
+    <!-- Modal for Subscription -->
+    <div id="subscribeModal" class="modal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2>Subscribe to our Email List</h2>
+        <input
+          type="email"
+          id="emailInput"
+          placeholder="Enter your email"
+          required />
+        <button onclick="subscribeEmail()">Subscribe</button>
+        <p class="message" id="message"></p>
+      </div>
+    </div>
+
+    <script>
+      // Modal logic
+      const modal = document.getElementById("subscribeModal");
+      const btn = document.getElementById("subscribeBtn");
+      const span = document.getElementsByClassName("close")[0];
+
+      // Open the modal when the subscribe button is clicked
+      btn.onclick = function () {
+        modal.style.display = "block";
+      };
+
+      // Close the modal when the "x" button is clicked
+      span.onclick = function () {
+        modal.style.display = "none";
+      };
+
+      // Close the modal if the user clicks anywhere outside of it
+      window.onclick = function (event) {
+        if (event.target == modal) {
+          modal.style.display = "none";
+        }
+      };
+
+      // Handle subscription logic
+      async function subscribeEmail() {
+        const email = document.getElementById("emailInput").value.trim();
+        if (!email) {
+          document.getElementById("message").textContent =
+            "Please enter a valid email address.";
+          return;
+        }
+
+        try {
+          const response = await fetch("/.netlify/functions/subscribe", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ email }),
+          });
+
+          const result = await response.json();
+
+          if (response.status === 200) {
+            document.getElementById("message").textContent =
+              "Thank you for subscribing!";
+            document.getElementById("emailInput").value = ""; // Clear input field
+          } else {
+            document.getElementById("message").textContent =
+              "There was an issue with your subscription. Please try again.";
+          }
+        } catch (error) {
+          console.error("Error subscribing:", error);
+          document.getElementById("message").textContent =
+            "There was an error. Please try again.";
+        }
+      }
+
+      // Fetch and display statuses from your Netlify function
+      async function fetchStatus() {
+        try {
+          const res = await fetch("/.netlify/functions/getstatus");
+          const data = await res.json();
+          const statuses = data.statuses;
+          const tableBody = document.getElementById("statusTable");
+          tableBody.innerHTML = "";
+
+          // Build an array of incidents (only those with title & description)
+          let incidents = [];
+          statuses.forEach((serviceStatus) => {
+            // Create a table row for each service
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>${serviceStatus.service}</td>
+              <td class="${serviceStatus.status}">
+                ${
+                  serviceStatus.status.charAt(0).toUpperCase() +
+                  serviceStatus.status.slice(1)
+                }
+              </td>
+            `;
+            tableBody.appendChild(row);
+
+            // If the service has incident details, add it to the incidents array
+            if (serviceStatus.title && serviceStatus.description) {
+              incidents.push({
+                service: serviceStatus.service,
+                status: serviceStatus.status,
+                title: serviceStatus.title,
+                description: serviceStatus.description,
+              });
+            }
+          });
+
+          // Sort incidents in descending order by severity
+          incidents.sort(
+            (a, b) => severityOrder[b.status] - severityOrder[a.status]
+          );
+
+          // Build incident banner content
+          const incidentBanner = document.getElementById("incidentBanner");
+          if (incidents.length > 0) {
+            let html = "";
+            incidents.forEach((incident) => {
+              html += `
+                <div class="incident">
+                  <h3>${incident.service} - ${incident.title} (${
+                incident.status.charAt(0).toUpperCase() +
+                incident.status.slice(1)
+              })</h3>
+                  <p>${incident.description}</p>
+                </div>
+              `;
+            });
+            incidentBanner.innerHTML = html;
+            incidentBanner.style.display = "block";
+          } else {
+            incidentBanner.style.display = "none";
+          }
+        } catch (error) {
+          console.error("Error fetching statuses:", error);
+        }
+      }
+
+      // Load statuses on page load and refresh every 5 seconds
+      fetchStatus();
+      setInterval(fetchStatus, 5000);
+    </script>
+  </body>
+</html>
